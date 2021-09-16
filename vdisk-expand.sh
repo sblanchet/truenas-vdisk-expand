@@ -1,9 +1,9 @@
 #!/usr/local/bin/bash
 
 #============================================================================
-# vdisk-expand.sh : expand ZFS pool after increasing a vdisk size for FreeNAS
+# vdisk-expand.sh : expand ZFS pool after increasing a vdisk size for TrueNAS
 #
-# Copyright (C) 2019  Sebastien BLANCHET
+# Copyright (C) 2019-2021  Sebastien BLANCHET
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -25,11 +25,11 @@
 #       vdisk-expand /dev/da1
 #
 ## REQUIREMENTS
-#        FreeNAS 11.x
+#        FreeNAS 11.x, TrueNAS Core 12
 #
 #==========================================================================
 
-PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+PATH=/sbin:/usr/sbin::/usr/local/sbin:/bin:/usr/bin:/usr/local/bin
 
 trap "exit 1" TERM
 TOP_PID=$$
@@ -61,8 +61,9 @@ function expand_vdisk() {
     # sanitize input to remove '/dev/'
     DEVICE=`readlink -f $DEVICE | sed -e 's|/dev/||'`
 
-    # probe device
-    camcontrol reprobe $DEVICE || alert
+    # probe device. Redirect stderr to /dev/null
+    # because it fails with zvol-backed virtio disks
+    camcontrol reprobe $DEVICE 2>/dev/null
 
     # allow online partition editing
     sysctl kern.geom.debugflags=16 >/dev/null
@@ -70,18 +71,21 @@ function expand_vdisk() {
     # recover gpt if needed
     gpart recover $DEVICE
 
-    # resize the freebsd-zfs partition (#2)
-    gpart resize -i 2 $DEVICE
+    # get the index of the freebsd-zfs partition
+    PARTIDX=`gpart list $DEVICE |grep -A1 freebsd-zfs | grep index | sed -e 's/.*index: //'`
+
+    # resize the freebsd-zfs partition
+    gpart resize -i $PARTIDX $DEVICE
 
 
     # Get ZFS partition name
-    gpart show $DEVICE | grep -q -- "-boot"
+    gpart show $DEVICE | grep -q -E -e "-boot|efi"
     if [ $? -eq 0 ] ; then
         # boot device:  use regular partition name
-        GPTID="${DEVICE}p2"
+        GPTID="${DEVICE}p${PARTIDX}"
     else
         # data device: use GPTID
-        GPTID=`glabel list ${DEVICE}p2|grep gptid|cut -f 2 -d :`
+        GPTID=`glabel list ${DEVICE}p${PARTIDX} | grep gptid | sed -e 's/.*Name: //'`
     fi
 
 

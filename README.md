@@ -1,19 +1,20 @@
-# vdisk-expand.sh for FreeNAS
+# vdisk-expand.sh for TrueNAS Core
 
-This script expands ZFS pool after increasing the size of a virtual disk.
+This script expands ZFS pool after increasing the size of a virtual disk
+ in VMware ESXi, VirtualBox or BHyve.
 
 ## Typical usage
 
-When running FreeNAS as a virtual machine with virtual disks
+When running TrueNAS as a virtual machine with virtual disks
 when you run out of space, you can increase the size of the virtual disks
-and then run this script in the FreeNAS shell to expand the associated ZFS pool.
+and then expand the associated ZFS pool with this shell script.
 
 ## Example with VMware ESXi
 
 * In VMware ESXi, increase the virtual disk size. It can be done while the
-FreeNAS vm is running.
+TrueNAS vm is running.
 
-* Go the the FreeNAS shell and run:
+* Go the the TrueNAS shell and run:
 
 ```bash
 vdisk-expand.sh /dev/da1
@@ -30,14 +31,28 @@ modification of virtual disks.
 VBoxManage modifyhd freenas-disk1.vdi  --resize 16384
 ```
 
-* Power on the FreeNAS virtual machine.
+* Power on the TrueNAS virtual machine.
 
-* Go the the FreeNAS shell and run:
+* Go the the TrueNAS shell and run:
 
 ```bash
 vdisk-expand.sh /dev/ada1
 ```
 
+## Example with BHyve and virtio disks
+
+* Increase the zvol to 200 GB
+```bash
+zfs set volsize=200G tank1/vm/my_zvol
+```
+
+You have to poweroff/poweron the VM to redetect the new size of the disk.
+
+Then run the script:
+
+```bash
+vdisk-expand.sh /dev/vtbd1
+```
 
 ## Compatibility
-This script is compatible with [FreeNAS](https://freenas.org) 11.1 and 11.2
+This script is compatible with FreeNAS 11.x and [TrueNAS Core](https://truenas.com) 12.0
